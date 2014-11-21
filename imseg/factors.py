@@ -90,7 +90,7 @@ def blanket_to_shape(blanket):
 def phi(blanket, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
         default_shape=DEFAULT_FACTOR, extra_shapes=SHAPES):
     """
-    Compute factor function for a 3x3 blanket around y_i
+    Compute log factor function for a 3x3 blanket around y_i
 
     Params
     ------
@@ -105,19 +105,19 @@ def phi(blanket, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
     extra_shapes: dict
         Maps special shapes to their factors
     """
-    res = 1.
+    res = 0.
     cluster = blanket[1][1]
     for i in xrange(3):
         for j in xrange(3):
             if (i,j) == (1,1):
                 continue
             elif blanket[i][j] == cluster:
-                res *= exp(-p)
+                res += -p
             else:
-                res *= exp(-q)
+                res += -q
     shape = blanket_to_shape(blanket)
     if shape in extra_shapes:
-        res *= exp(-extra_shapes[shape])
+        res += -extra_shapes[shape]
     else:
-        res *= exp(-default_shape)
+        res += -default_shape
     return res
