@@ -1,4 +1,4 @@
-from numpy import exp
+from numpy import exp, ones
 
 DEFAULT_FACTOR = 1.
 
