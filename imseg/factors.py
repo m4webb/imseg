@@ -5,7 +5,7 @@ DEFAULT_FACTOR = 1.
 SHAPES = {
         ((1,1,1),
          (1,1,1),
-         (1,1,1)) : -DEFAULT_FACTOR,
+         (1,1,1)) : -8*DEFAULT_FACTOR,
 
         ((0,0,0),
          (1,1,1),
@@ -107,6 +107,7 @@ def phi(blanket, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
     """
     res = 0.
     cluster = blanket[1][1]
+    """
     for i in xrange(3):
         for j in xrange(3):
             if (i,j) == (1,1):
@@ -115,9 +116,10 @@ def phi(blanket, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
                 res += -p
             else:
                 res += -q
+    """
     shape = blanket_to_shape(blanket)
     if shape in extra_shapes:
-        res += -extra_shapes[shape]
+        res -= extra_shapes[shape]
     else:
-        res += -default_shape
+        res -= default_shape
     return res
