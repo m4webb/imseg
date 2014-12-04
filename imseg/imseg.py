@@ -1,3 +1,4 @@
+# Authors: Matthew Webb, Abe Frandsen
 import sys
 
 from numpy import zeros, ones, log, exp, sum
