@@ -106,7 +106,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
 
                 # resample label var red
                 post_alpha_r = 1. + sum(mask)/2.
-                post_beta_r = sample_prec_r + sum((image[mask][:, 0] - emission_params[k,0])**2)/2.
+                post_beta_r = 1./sample_prec_r + sum((image[mask][:, 0] - emission_params[k,0])**2)/2.
                 post_r = gamma(post_alpha_r, scale=1./post_beta_r)
                 emission_params[k, 1] = post_r.rvs()
 
@@ -122,7 +122,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
 
                 # resample label var green
                 post_alpha_g = 1. + sum(mask)/2.
-                post_beta_g = sample_prec_g + sum((image[mask][:, 0] - emission_params[k,0])**2)/2.
+                post_beta_g = 1./sample_prec_g + sum((image[mask][:, 0] - emission_params[k,0])**2)/2.
                 post_g = gamma(post_alpha_g, scale=1./post_beta_g)
                 emission_params[k, 1] = post_g.rvs()
 
@@ -138,7 +138,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
 
                 # resample label var blue
                 post_alpha_b = 1. + sum(mask)/2.
-                post_beta_b = sample_prec_b + sum((image[mask][:, 0] - emission_params[k,0])**2)/2.
+                post_beta_b = 1./sample_prec_b + sum((image[mask][:, 0] - emission_params[k,0])**2)/2.
                 post_b = gamma(post_alpha_b, scale=1./post_beta_b)
                 emission_params[k, 1] = post_b.rvs()
                 
