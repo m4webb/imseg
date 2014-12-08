@@ -1,17 +1,19 @@
 # Authors: Matthew Webb, Abe Frandsen
 import sys
 
-from numpy import zeros, ones, log, exp, sum, sqrt
+from numpy import zeros, ones, log, exp, sum, sqrt, load
 from numpy.random import randint, random
 from scipy.stats.distributions import norm, gamma 
 from scipy.misc import logsumexp
 
-from factors import phi
+from phi import phi_blanket, phi_all
 
 TAU_0 = 0.1
 MU_0 = 0.5
 BETA_0 = 1./2.
 ALPHA_0 = 3.
+
+FS = load('factors.npy')
 
 def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     """
@@ -88,11 +90,16 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                     for k in xrange(n_segments):
                         labels[n,m] = k
                         conditional[k] = 0.
+                        conditional[k] += phi_blanket(
+                                memoryview(padded_labels), n, m,
+                                memoryview(FS))
+                        """
                         for x in xrange(max(n-2,0), min(n+3,image.shape[0])):
                             for y in xrange(max(m-2,0), min(m+3,
                                     image.shape[1])):
                                 clique = padded_labels[x:x+3,y:y+3]
                                 conditional[k] += phi(clique)
+                        """
                         mean_r = emission_params[k, 0]
                         var_r = 1./emission_params[k, 1]
                         mean_g = emission_params[k, 2]
@@ -159,7 +166,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
             log_prob = 0.
             for n in xrange(image.shape[0]):
                 for m in xrange(image.shape[1]):
-                    clique = padded_labels[n:n+3,m:m+3]
+                    #clique = padded_labels[n:n+3,m:m+3]
                     label = labels[n,m]
                     mean_r = emission_params[label, 0]
                     var_r = 1./emission_params[label, 1]
@@ -167,11 +174,12 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                     var_g = 1./emission_params[label, 3]
                     mean_b = emission_params[label, 4]
                     var_b = 1./emission_params[label, 5]
-                    log_prob += phi(clique)
+                    #log_prob += phi(clique)
                     log_prob += log(norm.pdf(image[n,m,0], mean_r, sqrt(var_r)))
                     log_prob += log(norm.pdf(image[n,m,1], mean_g, sqrt(var_g)))
                     log_prob += log(norm.pdf(image[n,m,2], mean_b, sqrt(var_b)))
                     # prior on theta?
+            log_prob += phi_all(memoryview(padded_labels), memoryview(FS))
 
             sys.stdout.write('\riter {} log_prob {}'.format(i, log_prob))
             sys.stdout.flush()
