@@ -5,7 +5,7 @@ DEFAULT_FACTOR = 1.
 SHAPES = {
         ((1,1,1),
          (1,1,1),
-         (1,1,1)) : -8*DEFAULT_FACTOR,
+         (1,1,1)) : -DEFAULT_FACTOR,
 
         ((0,0,0),
          (1,1,1),
@@ -79,23 +79,23 @@ for shape, factor in SHAPES.items():
     for i in xrange(1,4):
         SHAPES[rot(shape, i)] = factor
 
-def blanket_to_shape(blanket):
+def clique_to_shape(clique):
     """
-    Cast the blanket as a 3x3 tuple of cluster identities.
+    Cast the clique as a 3x3 tuple of cluster identities.
     """
-    cluster = blanket[1][1]
-    return tuple((tuple((int(r == cluster) for r in row)) for row in blanket))
+    cluster = clique[1][1]
+    return tuple((tuple((int(r == cluster) for r in row)) for row in clique))
 
 
-def phi(blanket, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
+def phi(clique, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
         default_shape=DEFAULT_FACTOR, extra_shapes=SHAPES):
     """
-    Compute log factor function for a 3x3 blanket around y_i
+    Compute log factor function for a 3x3 clique around y_i
 
     Params
     ------
-    blanket : 3x3 ndarray
-        The cluster assignments for the given blanket
+    clique : 3x3 ndarray
+        The cluster assignments for the given clique
     p : float
         Factor for identity
     q : float
@@ -105,21 +105,8 @@ def phi(blanket, p=-DEFAULT_FACTOR, q=DEFAULT_FACTOR,
     extra_shapes: dict
         Maps special shapes to their factors
     """
-    res = 0.
-    cluster = blanket[1][1]
-    """
-    for i in xrange(3):
-        for j in xrange(3):
-            if (i,j) == (1,1):
-                continue
-            elif blanket[i][j] == cluster:
-                res += -p
-            else:
-                res += -q
-    """
-    shape = blanket_to_shape(blanket)
+    shape = clique_to_shape(clique)
     if shape in extra_shapes:
-        res -= extra_shapes[shape]
+        return -extra_shapes[shape]
     else:
-        res -= default_shape
-    return res
+        return -default_shape
