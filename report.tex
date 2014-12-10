@@ -1,0 +1,73 @@
+\documentclass[12pt]{article}
+\usepackage{amssymb,amsmath,latexsym,amsthm,graphicx}
+\begin{document}
+\title{CS 698R Final Project Report}
+\author{Matthew Webb, Abraham Frandsen}
+\date{10 December 2014}
+
+\maketitle
+
+\subsection*{Introduction} (Abe)
+We designed and implemented a probabilistic graphical model for image segmentation.
+Using UGMs but not learning parameters.
+
+
+\subsection*{The Model}(Abe)
+Before we specify the model, we establish some notation. 
+Consider a digital image of dimension $N \times M$.
+Assume each pixel value is a $d$-dimensional real-valued vector
+(for example, $d$ may be 1 in the case of a Grayscale image, or $d$ may be 3 in the
+case of a RGB image), and assume the image contains $K$ segments.
+For each $i \in \{1,2\ldots,N\}$ and $j \in \{1,2,\ldots,M\}$,
+let $X_{i,j}$ be the numerical value for the $(i,j)$-th pixel, 
+and let $Z_{i,j}$ be the (latent) cluster assignment for the pixel. 
+Thus, we have $X_{i,j} \in \mathbb{R}^d$ and $Z_{i,j} \in \{1,2,\ldots,K\}$. 
+Let $X = (X_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}$ and 
+$Z=(Z_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}$. We call $X$ the pixel emissions,
+and $Z$ the cluster assignments for the image.
+
+We designed a hybrid directed-undirected graphical joint probability model.
+
+Clique potential is a function of boolean mask.
+
+TODO: show Gibbs sampling updates. 
+
+\subsection*{Data}(Matthew)
+talk about images
+
+\subsection*{Design Decisions}(Matthew)
+
+discuss the Gaussian model for pixel emission, as well as the choice for conjugate priors.(abe)
+
+discuss motivations for choosing special clique configurations. 
+discuss how this is an attempt to generalize or improve upon Ising model, where
+only adjacent pixels are considered.
+
+discuss clever code optimizations.
+
+\subsection*{Results}(Matthew)
+Stick in images, discuss parameters used such as segments, factor weights.
+Show plots of Gibbs sampler convergence.
+
+
+\subsection*{Qualitative Evaluation}
+strengths, weaknesses, observations.
+
+Cliques are local, so we get fragmented clusters at times. (Matthew)
+
+Intuition about the cluster assignment prior (squeezes out bad shapes). (Matthew)
+
+
+RGB space different from human qualitative perception, which affects cluster assignments.
+Is there an ideal color space corresponding to human perception? (Abe)
+
+Model doesn't account for texture, just assumes each cluster is largely one color (or point 
+in RGB space). (Abe)
+
+
+
+
+\subsection*{Conclusion} (Matthew)
+Further work.
+Joint vs Conditional (CRF).
+\end{document}
