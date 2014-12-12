@@ -2,12 +2,17 @@
 import sys
 
 from numpy import zeros, ones, log, exp, sum, mean, dot, array, eye, outer
+from numpy import allclose
 from numpy.random import randint, random, multivariate_normal as mvn
 from scipy.stats.distributions import norm, gamma
 from scipy.misc import logsumexp
 
 from utils import wishart, logNormPDF, logWisPDF, inv3
-from factors import phi
+from phi import phi_all, phi_blanket
+from numpy import load
+FS = load('factors.npy')*0.3
+FS[0] = 1e50
+#FS[0] = 1e50
 
 def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     """
@@ -30,6 +35,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     """
     N,M = image.shape[:2]
     # subtract out the mean
+    image = image.copy().astype(float)
     image -= array([image[:,:,i].mean() for i in xrange(3)])
     
     # allocate arrays
@@ -43,7 +49,8 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     V = eye(3) # scale matrix hyperparameter for wishart (uninformative?)
     Vinv = inv3(V) 
     mu = zeros(3) # mean hyperparameter for MVN
-    S = eye(3) # precision hyperparameter for MVN (uninformative?)
+    S = eye(3)*0.0001 # precision hyperparameter for MVN (uninformative?)
+
     
     # initialize labels/params
     padded_labels = ones((N+2,M+2), dtype=int)*-1
@@ -64,10 +71,13 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                         labels[n,m] = k
                         conditional[k] = 0.
                         # x,y are relative to image, not padded_labels
-                        for x in xrange(max(0,n-2), min(N,n+3)):
-                            for y in xrange(max(0,m-2), min(M,m+3)):
-                                clique = padded_labels[x:x+3,y:y+3]
-                                conditional[k] += phi(clique)
+                        #for x in xrange(max(0,n-2), min(N,n+3)):
+                            #for y in xrange(max(0,m-2), min(M,m+3)):
+                            #    clique = padded_labels[x:x+3,y:y+3]
+                            #    conditional[k] += phi(clique)
+                        conditional[k] += phi_blanket(
+                                memoryview(padded_labels), n, m,
+                                memoryview(FS))
                         conditional[k] += logNormPDF(image[n,m,:], 
                                                     emission_mu[k],
                                                     emission_prec[k])
@@ -81,8 +91,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                 P = inv3(S+n_k*emission_prec[k])
                 xbar = mean(image[mask],axis=0)
                 emission_mu[k,:] = mvn(dot(P,n_k*dot(emission_prec[k],xbar)),P)
-                
-                
+
                 # resample label precision
                 if n_k:
                     D = outer(image[mask][0,:]-emission_mu[k,:],image[mask][0,:]-emission_mu[k,:])
@@ -98,12 +107,15 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                 log_prob += logWisPDF(emission_prec[c],nu,Vinv)
             for n in xrange(N):
                 for m in xrange(M):
-                    clique = padded_labels[n:n+3,m:m+3]
+                    #clique = padded_labels[n:n+3,m:m+3]
                     label = labels[n,m]
-                    log_prob += phi(clique)
+                    #log_prob += phi(clique)
                     log_prob += logNormPDF(image[n,m,:],emission_mu[label],emission_prec[label])
+            log_prob_p = phi_all(memoryview(padded_labels), memoryview(FS))
 
-            sys.stdout.write('\riter {} log_prob {}'.format(i, log_prob))
+            sys.stdout.write('\riter {} log_prob_prior {} '
+                    'log_prob_emission {} k0 {} k1 {}           '.format(i,
+                        log_prob_p, log_prob, sum(labels==0), sum(labels==1)))
             sys.stdout.flush()
 
             if i < burn_in:
@@ -114,7 +126,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                 res_emission_prec[res_i] = emission_prec[:,:,:]
                 res_labels[res_i] = labels
                 res_log_prob[i] = log_prob
-            
+                
         sys.stdout.write('\n')
         return res_labels, res_emission_mu, res_emission_prec, res_log_prob
     except KeyboardInterrupt:
@@ -165,6 +177,10 @@ def sample_labels_prior(M,N, n_segments=2, samples=1000):
 def sample_categorical(p):
     """Sample a categorical parameterized by (unnormalized) exp(p)."""
     q = exp(p - logsumexp(p))
+    if not allclose(sum(q), 1.):
+        print p
+        print q
+        raise ValueError("ahh!")
     r = random()
     k = 0
     while k < len(q) - 1 and q[k] <= r:

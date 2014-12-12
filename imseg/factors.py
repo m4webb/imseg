@@ -1,6 +1,6 @@
 from numpy import exp, ones
 
-DEFAULT_FACTOR = 1.
+DEFAULT_FACTOR = 1.0
 
 SHAPES = {
         ((1,1,1),

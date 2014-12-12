@@ -42,7 +42,7 @@ We use the terms cluster and segment interchangeably.
 We note that each pixel value $X_{i,j}$ belongs to $\mathbb{R}^d$
 (for example, $d=3$ in the case of an RGB image, and $d=1$ in the case
 of a grayscale image), and that each $Z_{i,j}$ belongs to the set
-$\{1,2,\ldots,K\}$. 
+$\{1,2,\ldots,K\}$.
 Each cluster $k$ has a corresponding probability distribution over pixel values
 with parameters $\theta_k$. Depending on the choice of distribution,
 $\theta_k$ may be a tuple of one or multiple values.
@@ -84,14 +84,16 @@ This gives a Markov random field over $Z$ of the form
 P(Z) = \frac{1}{\mathcal{Z}}\prod_{i=1}^N\prod_{j=1}^M \phi_{i,j}(D_{i,j}),
 \]
 where $\mathcal{Z}$ is the partition function.
-Since each clique $D_{i,j}$ is of the same form as all others, 
+Since each clique $D_{i,j}$ is of the same form as all others,
 it is reasonable to set all clique potentials equal to the same function.
 Thus, to fully specify the distribution $P(Z)$, we need only define one clique potential $\phi$.
 We discuss our choice of $\phi$ later in this report.
 
+TODO: include the image we used in our class presentation showing a part of the graphical model.
+
 We opt for a MCMC approach to learning the cluster assignments and pixel emission parameters.
 In particular, given an image (i.e. given the pixel emissions $X$), we use Gibbs sampling
-to generate draws from $P(Z,\theta\, |\, X)$. 
+to generate draws from $P(Z,\theta\, |\, X)$.
 Deriving the complete conditionals for each $\theta_k$ and $Z_{i,j}$ is straightforward,
 and we detail them later in the report.
 
@@ -100,25 +102,25 @@ talk about images
 
 \subsection*{Design Decisions}
 We chose the pixel emission distribution for each cluster to be a multivariate normal
-distribution parameterized by a mean vector and precision matrix. 
-Thus, for each $k$ we have $\theta_k = (\mu_k, \Lambda_k)$ (mean vector and precision matrix, 
+distribution parameterized by a mean vector and precision matrix.
+Thus, for each $k$ we have $\theta_k = (\mu_k, \Lambda_k)$ (mean vector and precision matrix,
 respectively), and for each pixel $(i,j)$
 we have
 \[
 X_{i,j} \sim MVN(\mu_{Z_{i,j}}, \Lambda_{Z_{i,j}}).
 \]
 For each cluster $k$, we let $\mu_k$ and $\Lambda_k$ be independent according
-to the prior distribution $P(\theta_k)$, so that 
+to the prior distribution $P(\theta_k)$, so that
 \[
 P(\theta_k) = P(\mu_k)P(\Lambda_k).
 \]
-We assumed a multivariate normal distribution for each $\mu_k$ and a 
+We assumed a multivariate normal distribution for each $\mu_k$ and a
 $d$-dimensional Wishart distribution for each $\Lambda_k$, i.e.
 \begin{align*}
 \mu_k &\sim MVN(m,S), \qquad && k=1,2,\ldots,K\\
 \Lambda_k &\sim W_d(V,n), &&k=1,2,\ldots,K,
 \end{align*}
-where 
+where
 \begin{align*}
 n &= 4\\
 m &= \begin{bmatrix}
@@ -133,12 +135,12 @@ S, V &= \begin{bmatrix}
 These distributions are conjugate to the multivariate normal distribution, and hence allow for
 efficient sampling from the complete conditionals in the Gibbs sampler. The hyperparameters
 were chosen to make these priors relatively uninformative.
-In practice, we shift the image by its mean before running the sampler, 
+In practice, we shift the image by its mean before running the sampler,
 which justifies our choice for the hyperparameter $m$.
 
 Under these conjugate prior distributions, the complete conditionals for $\mu_k$ and $\Lambda_k$
 are again multivariate normal and Wishart, respectively.
-The complete conditional for each $Z_{i,j}$ is simply a categorical distribution with weight 
+The complete conditional for each $Z_{i,j}$ is simply a categorical distribution with weight
 vector $\omega$. This weight vector is found by first calculating each component
 \[
 \omega_k = P(X_{i,j}\,|\,\theta_k)
@@ -147,12 +149,40 @@ vector $\omega$. This weight vector is found by first calculating each component
 \]
 and then normalizing so that it sums to 1.
 
+The choice of weights for the clique potentials is the fundamental way in which
+we incorporate our prior belief about the arrangement of image segments,
+especially since we are not learning these weights from labelled data. We adopt
+an intuitive approach to choosing these weights. We wish to assert local shapes
+that we would imagine could be a part of an image segment, and penalize those
+shapes that we do not think are so. Since we are looking at the comparison of
+the eight labels that surround the center label, there are $2^8 = 256$ possible
+shapes. When we consider rotations of the same shape to be equivalent, this
+number becomes even more manageable.
 
-discuss motivations for choosing special clique configurations.
-discuss how this is an attempt to generalize or improve upon Ising model, where
-only adjacent pixels are considered.
+We chose to assign a beneficial weight to a subset of the shapes and their
+rotations. We assign the most favorable weight to the shape in which all labels
+are equal. We assign somewhat favorable weights to the shapes which could be
+part of an edge, that is, which partition the labels into two connected
+segments not including diagonals. All other shapes are assigned a penalizing
+weight. 
+%Some examples are given in table \ref{table:shapes}.
+%
+%\begin{table}
+%    \begin{tabular}{| l | l |}
+%        \includegraphics[width=5mm]{shapes/15.png} & 1.\\
+%        \includegraphics[width=5mm]{shapes/11.png} & 2.\\
+%    \end{tabular}
+%    \caption{Weights for selected shapes.}
+%    \label{table:shapes}
+%\end{table}
 
-discuss clever code optimizations.
+This choice of prior is similar to the Ising model. In the Ising model, all
+cliques are pairs of neighbors. This structure is able to assert that neighbors
+should mostly be the same label. However, it is not able to assert the likely
+boundaries between two segments. Our generalization hopes to assert likely
+boundaries along with the core idea that neighbors should mostly be the same
+label.
+
 
 \subsection*{Results}(Matthew)
 Stick in images, discuss parameters used such as segments, factor weights.
@@ -161,43 +191,63 @@ Show plots of Gibbs sampler convergence.
 
 \subsection*{Qualitative Evaluation}
 Our choice to model the pixel emissions for each cluster as a multivariate normal has important
-implications on the quality of the segments that we obtain. 
+implications on the quality of the segments that we obtain.
 Essentially, this modeling choice assumes that each segment in the image is characterized by just one
 color value, and that each pixel emission in the segment should be close to this characteristic
-color. This suggests that the model will struggle with finding segments that are characterized 
-not by a dominant color, but by distinctive textures or contrast. (TODO: include references to 
+color. This suggests that the model will struggle with finding segments that are characterized
+not by a dominant color, but by distinctive textures or contrast. (TODO: include references to
 the concrete results.) Perhaps one way to improve the model in this respect would be to make each
 pixel emission distribution a mixture of multivariate normals, allowing for varying colors to feature
 prominently in the segments.
 
 Another salient point related to the pixel emissions is the choice of color space used to represent
-the image. 
+the image.
 In our experiments, we used the standard RGB color channels to represent each pixel emission.
 However, this color space may not always correspond closely with human perception of which colors are
-close or far apart. 
-Thus, two pixels that a human eye might judge to be similar in color may be assigned to different 
+close or far apart.
+Thus, two pixels that a human eye might judge to be similar in color may be assigned to different
 segments, simply because the actual RGB values are far apart. (TODO: give a concrete example of this?)
-Choosing a color space that most closely matches how the human eye perceives and judges color may 
-lead to better performance, although we are unaware of whether such an ideal color space exists. 
+Choosing a color space that most closely matches how the human eye perceives and judges color may
+lead to better performance, although we are unaware of whether such an ideal color space exists.
 
+We hope that the decisions made about the prior structure of the segments will
+help the model be less sensitive to pixel anomalies that might be present if
+the labels were treated as independent. For example, if a single was a
+different color than most of its neighbors, the prior influence would hopefully
+be such that this anomaly would be ``squeezed out'', and it would be labelled
+with its neighbors.
 
-Model doesn't account for texture, just assumes each cluster is largely one color (or point
-in RGB space). (Abe)
+There is a trade-off between the size of the cliques and the complexity of their
+implementation and computation. Since we are not learning the factor weights,
+but rather specifying them ``by hand'', more complex cliques would result in
+more time spent making decisions about which shapes to assert or penalize.
+Also, every clique of which an individual label is a member needs to be
+including in the Gibbs sampling update. So the computational complexity
+increasing with the complexity of the cliques.
 
-
-strengths, weaknesses, observations.
-
-Cliques are local, so we get fragmented clusters at times. (Matthew)
-
-Intuition about the cluster assignment prior (squeezes out bad shapes). (Matthew)
-
-
-
-
-
-
+Since we choose to work with small, simple cliques, their influence is mostly
+seen at the local level. They are able to help influence the micro-structures
+that are exhibited among the segments. However, they do not have a macroscopic
+view of the problem. This can result in fragmented segments.
 
 \subsection*{Conclusion} (Matthew)
-Further work.
-Joint vs Conditional (CRF).
-\end{document} 
+This model presents interesting ideas about image segmentation, and also
+demonstrates important shortcomings. The structure for the prior distribution
+of segments allows an interesting paradigm in which to work. However, there are
+certain deficiencies that necessarily arise when working on a local scale.
+
+One important decision we made as modelers was to use a generative model. This
+gave us an intuitive way to approach the problem. However, we feel like it
+would be worthwhile to explore using conditional models for this problem.
+Generating new images with the model does not have many apparently practical
+purposes. Using a generative model would allow the distribution on a label to
+involve not only the pixel emission it labels, but also the emissions of its
+neighbors or others. This would allow another mechanism to help detect
+boundaries.
+
+By completing this project, we learned a lot about specifying and working with
+hybrid directed-undirected graphical models. Also, we developed our intuition
+about what important questions need to be answered when segmenting an image.
+Finally, we developed our modeling abilities by creating and working with a new
+probability model.
+\end{document}
