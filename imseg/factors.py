@@ -5,23 +5,23 @@ DEFAULT_FACTOR = 1.0
 SHAPES = {
         ((1,1,1),
          (1,1,1),
-         (1,1,1)) : -DEFAULT_FACTOR,
+         (1,1,1)) : -3*DEFAULT_FACTOR,
 
         ((0,0,0),
          (1,1,1),
-         (1,1,1)) : -DEFAULT_FACTOR,
+         (1,1,1)) : -2*DEFAULT_FACTOR,
 
         ((1,1,1),
          (1,1,1),
-         (0,0,0)) : -DEFAULT_FACTOR,
+         (0,0,0)) : -2*DEFAULT_FACTOR,
 
         ((0,1,1),
          (0,1,1),
-         (0,1,1)) : -DEFAULT_FACTOR,
+         (0,1,1)) : -2*DEFAULT_FACTOR,
 
         ((1,1,0),
          (1,1,0),
-         (1,1,0)) : -DEFAULT_FACTOR,
+         (1,1,0)) : -2*DEFAULT_FACTOR,
 
         ((0,1,1),
          (1,1,1),
@@ -57,7 +57,7 @@ SHAPES = {
 
         ((0,0,0),
          (0,1,0),
-         (0,0,0)) : DEFAULT_FACTOR,
+         (0,0,0)) : 10000*DEFAULT_FACTOR,
 }
 
 def rot(shape, i):
