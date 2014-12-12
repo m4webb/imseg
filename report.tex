@@ -3,39 +3,151 @@
 \begin{document}
 \title{CS 698R Final Project Report}
 \author{Matthew Webb, Abraham Frandsen}
-\date{10 December 2014}
+\date{11 December 2014}
 
 \maketitle
 
-\subsection*{Introduction} (Abe)
-We designed and implemented a probabilistic graphical model for image segmentation.
-Using UGMs but not learning parameters.
+\subsection*{Introduction}
+Over the course of the semester, we had the opportunity not only to learn about
+Bayesian Networks in class, but also to learn about undirected graphical models under
+the tutelage of Dr. Ringger. We therefore determined to use techniques from both
+areas in this project.
+We chose to engage the task of image segmentation due to our joint interest in the problem
+as well as to apply our modeling techniques to a realm outside of natural language processing.
 
+We designed and implemented a probabilistic graphical model for image segmentation, together
+with a learning algorithm for the model.
+Our model consists of both directed and undirected elements.
+We used a Gibbs sampling approach for parameter learning, and performed experiments on several
+test images.
 
-\subsection*{The Model}(Abe)
-Before we specify the model, we establish some notation. 
-Consider a digital image of dimension $N \times M$.
-Assume each pixel value is a $d$-dimensional real-valued vector
-(for example, $d$ may be 1 in the case of a Grayscale image, or $d$ may be 3 in the
-case of a RGB image), and assume the image contains $K$ segments.
-For each $i \in \{1,2\ldots,N\}$ and $j \in \{1,2,\ldots,M\}$,
-let $X_{i,j}$ be the numerical value for the $(i,j)$-th pixel, 
-and let $Z_{i,j}$ be the (latent) cluster assignment for the pixel. 
-Thus, we have $X_{i,j} \in \mathbb{R}^d$ and $Z_{i,j} \in \{1,2,\ldots,K\}$. 
-Let $X = (X_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}$ and 
-$Z=(Z_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}$. We call $X$ the pixel emissions,
-and $Z$ the cluster assignments for the image.
+\subsection*{The Model}
+\begin{figure}
+\begin{align*}
+&N, M \qquad &&\text{Dimensions of image (rows, columns).}\\
+&d \qquad &&\text{Dimension of color space.}\\
+&K \qquad &&\text{Number of segments/clusters.}\\
+&X_{i,j}, \,\, 1\leq i \leq N, 1\leq j \leq M &&\text{Observed value for $(i,j)$-th pixel.}\\
+&Z_{i,j}, \,\, 1\leq i \leq N, 1\leq j \leq M &&\text{Cluster assignment for $(i,j)$-th pixel.}\\
+&\theta_k,\,\, 1\leq k \leq K &&\text{Parameter vector for cluster $k$.}\\
+&X = (X_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}\\
+&Z = (Z_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}\\
+&\theta = (\theta_k)_{1\leq k \leq K}
+\end{align*}
+\caption{Basic notation.}
+\label{equations}
+\end{figure}
+See Figure \ref{equations} for the basic notational definitions.
+We use the terms cluster and segment interchangeably.
+We note that each pixel value $X_{i,j}$ belongs to $\mathbb{R}^d$
+(for example, $d=3$ in the case of an RGB image, and $d=1$ in the case
+of a grayscale image), and that each $Z_{i,j}$ belongs to the set
+$\{1,2,\ldots,K\}$.
+Each cluster $k$ has a corresponding probability distribution over pixel values
+with parameters $\theta_k$. Depending on the choice of distribution,
+$\theta_k$ may be a tuple of one or multiple values.
+We call $X$ the pixel emissions, $Z$ the cluster assignments for the image, and
+we refer to $\theta$ as the pixel emission parameters.
 
-We designed a hybrid directed-undirected graphical joint probability model.
+We designed a hybrid directed-undirected graphical joint probability model over $X, Z$, and $\theta$.
+On a high level, our model factorizes as follows:
+\[
+P(X,Z,\theta) = P(Z)\left(\prod_{k=1}^KP(\theta_k)\right)
+\left(\prod_{i=1}^N\prod_{j=1}^MP(X_{i,j}\,|\theta_{Z_{i,j}})\right)
+\]
+In the generative story,
+first draw the cluster assignments $Z$ from the cluster assignment distribution $P(Z)$.
+Next, for each cluster $k$, draw the pixel emission parameters $\theta_k$ from $P(\theta_k)$.
+Finally, for each pixel $(i,j)$, generate the pixel emission value $X_{i,j}$ given its
+cluster assignment $Z_{i,j}$ and the pixel emission parameters $\theta$.
 
-Clique potential is a function of boolean mask.
+We note that in this model, each pixel emission variable $X_{i,j}$ is conditionally
+independent of all other
+variables given its cluster assignment $Z_{i,j}$ and the parameters $\theta_{Z_{i,j}}$
+corresponding to the cluster assignment. Further, each $\theta_k$ is independent of all
+other $\theta_l$, for $l \neq k$. These independence properties are reflected
+directly in the factorization of the joint probability.
 
-TODO: show Gibbs sampling updates. 
+We model the relationships between the cluster assignment variables $Z_{i,j}$ with an undirected graph
+$\mathcal{G}$ over these variables.
+In particular, for $1 \leq i \leq N$ and $1 \leq j \leq M$, let
+\[
+D_{i,j} = \{Z_{i+\epsilon_1,j+\epsilon_2}\,|\,-1 \leq \epsilon_1, \epsilon_2 \leq 1\},
+\]
+i.e. $D_{i,j}$ is the $3\times 3$ subgrid of cluster assignment variables centered at $Z_{i,j}$
+(with obvious adjustments made for the edges of the image). Let each $D_{i,j}$ be a clique in
+$\mathcal{G}$, and for each clique $D_{i,j}$, define a clique potential $\phi_{i,j}(D_{i,j})$
+(a real-valued function).
+Let $\mathcal{C}$ denote the collection of cliques $D_{i,j}$.
+This gives a Markov random field over $Z$ of the form
+\[
+P(Z) = \frac{1}{\mathcal{Z}}\prod_{i=1}^N\prod_{j=1}^M \phi_{i,j}(D_{i,j}),
+\]
+where $\mathcal{Z}$ is the partition function.
+Since each clique $D_{i,j}$ is of the same form as all others,
+it is reasonable to set all clique potentials equal to the same function.
+Thus, to fully specify the distribution $P(Z)$, we need only define one clique potential $\phi$.
+We discuss our choice of $\phi$ later in this report.
+
+TODO: include the image we used in our class presentation showing a part of the graphical model.
+
+We opt for a MCMC approach to learning the cluster assignments and pixel emission parameters.
+In particular, given an image (i.e. given the pixel emissions $X$), we use Gibbs sampling
+to generate draws from $P(Z,\theta\, |\, X)$.
+Deriving the complete conditionals for each $\theta_k$ and $Z_{i,j}$ is straightforward,
+and we detail them later in the report.
 
 \subsection*{Data}(Matthew)
 talk about images
 
-\subsection*{Design Decisions}(Matthew)
+\subsection*{Design Decisions}
+We chose the pixel emission distribution for each cluster to be a multivariate normal
+distribution parameterized by a mean vector and precision matrix.
+Thus, for each $k$ we have $\theta_k = (\mu_k, \Lambda_k)$ (mean vector and precision matrix,
+respectively), and for each pixel $(i,j)$
+we have
+\[
+X_{i,j} \sim MVN(\mu_{Z_{i,j}}, \Lambda_{Z_{i,j}}).
+\]
+For each cluster $k$, we let $\mu_k$ and $\Lambda_k$ be independent according
+to the prior distribution $P(\theta_k)$, so that
+\[
+P(\theta_k) = P(\mu_k)P(\Lambda_k).
+\]
+We assumed a multivariate normal distribution for each $\mu_k$ and a
+$d$-dimensional Wishart distribution for each $\Lambda_k$, i.e.
+\begin{align*}
+\mu_k &\sim MVN(m,S), \qquad && k=1,2,\ldots,K\\
+\Lambda_k &\sim W_d(V,n), &&k=1,2,\ldots,K,
+\end{align*}
+where
+\begin{align*}
+n &= 4\\
+m &= \begin{bmatrix}
+0 & 0 & 0
+\end{bmatrix}^T\\
+S, V &= \begin{bmatrix}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 1
+\end{bmatrix}.
+\end{align*}
+These distributions are conjugate to the multivariate normal distribution, and hence allow for
+efficient sampling from the complete conditionals in the Gibbs sampler. The hyperparameters
+were chosen to make these priors relatively uninformative.
+In practice, we shift the image by its mean before running the sampler,
+which justifies our choice for the hyperparameter $m$.
+
+Under these conjugate prior distributions, the complete conditionals for $\mu_k$ and $\Lambda_k$
+are again multivariate normal and Wishart, respectively.
+The complete conditional for each $Z_{i,j}$ is simply a categorical distribution with weight
+vector $\omega$. This weight vector is found by first calculating each component
+\[
+\omega_k = P(X_{i,j}\,|\,\theta_k)
+\prod_{\substack{D \in \mathcal{C}\\
+        Z_{i,j} \in D}}\phi(D), \quad \text{(where we set $Z_{i,j}=k$)}
+\]
+and then normalizing so that it sums to 1.
 
 The choice of weights for the clique potentials is the fundamental way in which
 we incorporate our prior belief about the arrangement of image segments,
@@ -83,19 +195,32 @@ boundaries between two segments. Our generalization hopes to assert likely
 boundaries along with the core idea that neighbors should mostly be the same
 label.
 
-discuss motivations for choosing special clique configurations. 
-
-discuss how this is an attempt to generalize or improve upon Ising model, where
-only adjacent pixels are considered.
-
-discuss the Gaussian model for pixel emission, as well as the choice for conjugate priors.(abe)
-
 \subsection*{Results}(Matthew)
 Stick in images, discuss parameters used such as segments, factor weights.
 Show plots of Gibbs sampler convergence.
 
 
 \subsection*{Qualitative Evaluation}
+Our choice to model the pixel emissions for each cluster as a multivariate normal has important
+implications on the quality of the segments that we obtain.
+Essentially, this modeling choice assumes that each segment in the image is characterized by just one
+color value, and that each pixel emission in the segment should be close to this characteristic
+color. This suggests that the model will struggle with finding segments that are characterized
+not by a dominant color, but by distinctive textures or contrast. (TODO: include references to
+the concrete results.) Perhaps one way to improve the model in this respect would be to make each
+pixel emission distribution a mixture of multivariate normals, allowing for varying colors to feature
+prominently in the segments.
+
+Another salient point related to the pixel emissions is the choice of color space used to represent
+the image.
+In our experiments, we used the standard RGB color channels to represent each pixel emission.
+However, this color space may not always correspond closely with human perception of which colors are
+close or far apart.
+Thus, two pixels that a human eye might judge to be similar in color may be assigned to different
+segments, simply because the actual RGB values are far apart. (TODO: give a concrete example of this?)
+Choosing a color space that most closely matches how the human eye perceives and judges color may
+lead to better performance, although we are unaware of whether such an ideal color space exists.
+
 We hope that the decisions made about the prior structure of the segments will
 help the model be less sensitive to pixel anomalies that might be present if
 the labels were treated as independent. For example, if a single was a
@@ -115,13 +240,6 @@ Since we choose to work with small, simple cliques, their influence is mostly
 seen at the local level. They are able to help influence the micro-structures
 that are exhibited among the segments. However, they do not have a macroscopic
 view of the problem. This can result in fragmented segments.
-
-RGB space different from human qualitative perception, which affects cluster assignments.
-Is there an ideal color space corresponding to human perception? (Abe)
-
-Model doesn't account for texture, just assumes each cluster is largely one color (or point 
-in RGB space). (Abe)
-
 
 \subsection*{Conclusion} (Matthew)
 This model presents interesting ideas about image segmentation, and also

@@ -11,7 +11,11 @@ from numpy.random import randint, random, multivariate_normal as mvn
 from scipy.stats.distributions import norm, gamma
 from scipy.misc import logsumexp
 
-FS = load('factors.npy')*1.0 #allow optimized factor computation
+from utils import wishart, logNormPDF, logWisPDF, inv3
+from phi import phi_all, phi_blanket
+from numpy import load
+FS = load('factors.npy')*0.3
+FS[0] = 1e50
 
 def normalize(image):
     image = image.copy().astype(float)
@@ -58,6 +62,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     Vinv = inv3(V) 
     mu = zeros(3) # mean hyperparameter for MVN
     S = eye(3)*0.0001 # precision hyperparameter for MVN (uninformative?)
+
     
     # initialize labels/params
     padded_labels = ones((N+2,M+2), dtype=int)*-1
@@ -74,7 +79,6 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     log_prob_e = None
 
     conditional = zeros((n_segments,))
-    print "Starting the sampler..."
     try:
         # gibbs
         for i in xrange(burn_in + samples*lag - (lag - 1)):
@@ -111,9 +115,9 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
                         D += outer(image[mask][ii,:]-emission_mu[k,:],image[mask][ii,:]-emission_mu[k,:])
                     emission_prec[k,:,:] = wishart(inv3(Vinv+D),nu+n_k)
                 else:
-                    emission_prec[k,:,:] = wishart(V,nu)
+                    emission_prec[k,:,:] = wishart(V,nu) # resample using the prior
 
-            log_prob_e = 0.
+            log_prob = 0.
             for c in xrange(n_segments):
                 log_prob_e += logNormPDF(emission_mu[c],mu,S)
                 log_prob_e += logWisPDF(emission_prec[c],nu,Vinv)
@@ -152,6 +156,48 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
             return (res_labels, res_emission_mu, res_emission_prec,
                     res_log_prob_p, res_log_prob_e)
 
+
+def sample_labels_prior(M,N, n_segments=2, samples=1000):
+    """
+    Sample from the prior over cluster assignments using Gibbs sampling.
+    """
+    res_labels = zeros((samples+1, M, N), dtype=int)
+    padded_labels = ones((M+2,N+2), dtype=int)*-1
+    #padded_labels[1:-1,1:-1] = randint(n_segments,size=(M,N))
+    padded_labels[1:M/2,1:-1] = 1
+    padded_labels[M/2:-1,1:-1] = 0
+    labels = padded_labels[1:-1, 1:-1]
+    res_labels[0,:,:] = labels
+    lprobs = zeros(samples)
+    conditional = zeros((n_segments,))
+    for i in xrange(samples):
+        for n in xrange(M):
+            for m in xrange(N):
+                # resample label
+                for k in xrange(n_segments):
+                    labels[n,m] = k
+                    conditional[k] = 0.
+                    # x,y are relative to image, not padded_labels
+                    for x in xrange(max(0,n-1), min(N,n+2)):
+                        for y in xrange(max(0,m-1), min(M,m+2)):
+                            clique = padded_labels[x:x+3,y:y+3]
+                            conditional[k] += phi(clique)
+                if m==0 and n==0:
+                    print conditional
+                labels[n,m] = sample_categorical(conditional)
+        res_labels[i+1] = labels
+        log_prob=0
+        for n in xrange(M):
+            for m in xrange(N):
+                clique = padded_labels[n:n+3,m:m+3]
+                label = labels[n,m]
+                log_prob += phi(clique)
+        lprobs[i] = log_prob
+        sys.stdout.write('\riter {} log_prob {}'.format(i, log_prob))
+        sys.stdout.flush()
+    sys.stdout.write('\n')
+    return res_labels, lprobs
+    
 def sample_categorical(p):
     """Sample a categorical parameterized by (unnormalized) exp(p)."""
     q = exp(p - logsumexp(p))
