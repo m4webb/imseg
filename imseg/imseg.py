@@ -174,7 +174,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
         return res_labels, res_emission_params, res_log_prob
     except KeyboardInterrupt:
         return res_labels, res_emission_params, res_log_prob
-
+    
 def sample_categorical(p):
     """Sample a categorical parameterized by (unnormalized) exp(p)."""
     q = exp(p - logsumexp(p))
