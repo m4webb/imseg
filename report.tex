@@ -87,7 +87,8 @@ where $\mathcal{Z}$ is the partition function.
 Since each clique $D_{i,j}$ is of the same form as all others,
 it is reasonable to set all clique potentials equal to the same function.
 Thus, to fully specify the distribution $P(Z)$, we need only define one clique potential $\phi$.
-We discuss our choice of $\phi$ later in this report.
+We discuss our choice of $\phi$ later in this report. Figure \ref{fig:graph} gives a graphical
+depiction of the key elements of the model.
 
 \begin{figure}
     \begin{center}
@@ -153,7 +154,12 @@ n &= 4\\
 m &= \begin{bmatrix}
 0 & 0 & 0
 \end{bmatrix}^T\\
-S, V &= \begin{bmatrix}
+V &= \begin{bmatrix}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 1
+\end{bmatrix}\\
+S &= .0001\begin{bmatrix}
 1 & 0 & 0\\
 0 & 1 & 0\\
 0 & 0 & 1
@@ -276,8 +282,11 @@ implications on the quality of the segments that we obtain.
 Essentially, this modeling choice assumes that each segment in the image is characterized by just one
 color value, and that each pixel emission in the segment should be close to this characteristic
 color. This suggests that the model will struggle with finding segments that are characterized
-not by a dominant color, but by distinctive textures or contrast. (TODO: include references to
-the concrete results.) Perhaps one way to improve the model in this respect would be to make each
+not by a dominant color, but by distinctive textures or contrast. 
+An example of this is shown in Figure \ref{fig:esther_1}, where the segment containing the background
+and the baby's shirt leaves out the pink-colored pixels, even though to the human eye, they should be
+lumped together in that same segment.
+Perhaps one way to improve the model in this respect would be to make each
 pixel emission distribution a mixture of multivariate normals, allowing for varying colors to feature
 prominently in the segments.
 
@@ -287,7 +296,7 @@ In our experiments, we used the standard RGB color channels to represent each pi
 However, this color space may not always correspond closely with human perception of which colors are
 close or far apart.
 Thus, two pixels that a human eye might judge to be similar in color may be assigned to different
-segments, simply because the actual RGB values are far apart. (TODO: give a concrete example of this?)
+segments, simply because the actual RGB values are far apart.
 Choosing a color space that most closely matches how the human eye perceives and judges color may
 lead to better performance, although we are unaware of whether such an ideal color space exists.
 
@@ -378,7 +387,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
         Log probability portion contributed by emissions
     """
     N,M = image.shape[:2]
-    image = normalize(image)   
+    image = normalize(image)
 
     # allocate arrays
     res_labels = zeros((samples+1,N,M))
@@ -390,11 +399,11 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     # initialize hyperparmeters
     nu = 4 # df hyperparameter for wishart
     V = eye(3) # scale matrix hyperparameter for wishart
-    Vinv = inv3(V) 
+    Vinv = inv3(V)
     mu = zeros(3) # mean hyperparameter for MVN
     S = eye(3)*0.0001 # precision hyperparameter for MVN
 
-    
+
     # initialize labels/params
     padded_labels = ones((N+2,M+2), dtype=int)*-1
     padded_labels[1:-1,1:-1] = randint(n_segments,size=(N,M))
@@ -405,7 +414,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
     res_labels[-1] = labels
 
     # draw from prior
-    emission_mu = mvn(mu,S,size=n_segments) 
+    emission_mu = mvn(mu,S,size=n_segments)
     emission_prec = array([wishart(V,nu) for i in xrange(n_segments)])
     log_prob_p = None
     log_prob_e = None
@@ -430,7 +439,7 @@ def segment(image, n_segments=2, burn_in=1000, samples=1000, lag=5):
         for k in xrange(n_segments):
             mask = (labels == k)
             n_k = sum(mask)
-            
+
             # resample label mean
             if n_k:
                 P = inv3(S+n_k*emission_prec[k])
@@ -491,7 +500,7 @@ def normalize(image):
     image = image.copy().astype(float)
     image -= array([image[:,:,i].mean() for i in xrange(3)])
     return image
- 
+
 def sample_categorical(p):
     """Sample a categorical parameterized by (unnormalized) exp(p)."""
     q = exp(p - logsumexp(p))
@@ -511,32 +520,29 @@ from math import sqrt, log
 def wishart(sig, n):
     """
     Sample from a Wishart distribution (naive implementation).
-    
+
     Parameters
     ----------
     sig : (d,d) ndarray
         The scale matrix for the Wishart distribution, must be pos. definite.
     n : int
         Must be >= d.
-        
+
     Returns
     -------
     w : (d,d) ndarray
         The sample from the distribution.
     """
     d = sig.shape[0]
-    s = mvn(zeros(d), sig, n)
-    w = empty((d,d))
-    for i in xrange(n):
-        w += outer(s[i], s[i])
-    return w
- 
+    X = mvn(zeros(d), sig, n)
+    return dot(X.T,X)
+
 def det3(A):
     """Return the determinant of a 3x3 matrix."""
     return (A[0,0]*A[1,1]*A[2,2]+A[0,1]*A[1,2]*A[2,0]+
             A[0,2]*A[1,0]*A[2,1]-(A[0,2]*A[1,1]*A[2,0]+
             A[0,0]*A[1,2]*A[2,1]+A[0,1]*A[1,0]*A[2,2]))
-       
+
 def inv3(A):
     """Return the inverse of a 3x3 matrix."""
     I = empty((3,3))
@@ -550,32 +556,32 @@ def inv3(A):
     I[2,1] = -A[0,0]*A[2,1]+A[0,1]*A[2,0]
     I[1,2] = -A[0,0]*A[1,2]+A[0,2]*A[1,0]
     d = det3(A)
-    return I/d    
+    return I/d
 
 def logNormPDF(x,mu,V):
     """
-    Return the log of the PDF of a MVN with mean mu and precision V 
+    Return the log of the PDF of a MVN with mean mu and precision V
     evaluated at x (up to additive constant of proportionality).
-    
+
     Parameters
     ----------
     x : (d,) ndarray
     mu : (d,) ndarray
     V : (d,d) ndarray
         Must be symmetric, positive definite
-        
+
     Returns
     -------
     d : float
     """
     return sqrt(det3(V))-0.5*inner(x-mu,V.dot(x-mu))
-    
+
 def logWisPDF(X,nu,Vinv):
     """
-    Return the log of the PDF of a wishart with parameters nu, V 
+    Return the log of the PDF of a wishart with parameters nu, V
     evaluated at X (up to additive constant of proportionality not
     dependent on X).
-    
+
     Parameters
     ----------
     X : (3,3) ndarray
@@ -584,7 +590,7 @@ def logWisPDF(X,nu,Vinv):
         Must be >= 3
     Vinv : (3,3) ndarray
         The inverse of the scale matrix V of the distribution
-    
+
     Returns
     -------
     logpdf : float
