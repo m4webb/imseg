@@ -1,0 +1,197 @@
+\documentclass{beamer}
+\usepackage{amssymb,amsmath,latexsym,amsthm,graphicx,url,caption,verbatim}
+\usetheme{Madrid}
+
+\begin{document}
+
+\setbeamertemplate{caption}{\raggedright\insertcaption\par}
+
+\title[Image Segmentation]{Hybrid Graphical Model for Image Segmentation}
+\author{Matthew Webb, Abraham Frandsen}
+\date{19 December 2014}
+
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+    \frametitle{Overview}
+    \tableofcontents
+\end{frame}
+
+\section{Introduction}
+\begin{frame}
+    \frametitle{Introduction}
+\begin{center}
+Image Segmentation
+\end{center}
+\end{frame}
+
+
+\begin{comment}
+\begin{frame}
+\begin{figure}
+\begin{align*}
+&N, M \qquad &&\text{Dimensions of image (rows, columns).}\\
+&d \qquad &&\text{Dimension of color space.}\\
+&K \qquad &&\text{Number of segments/clusters.}\\
+&X_{i,j}, \,\, 1\leq i \leq N, 1\leq j \leq M &&\text{Observed value for $(i,j)$-th pixel.}\\
+&Z_{i,j}, \,\, 1\leq i \leq N, 1\leq j \leq M &&\text{Cluster assignment for $(i,j)$-th pixel.}\\
+&\theta_k,\,\, 1\leq k \leq K &&\text{Parameter vector for cluster $k$.}\\
+&X = (X_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}\\
+&Z = (Z_{i,j})_{1\leq i \leq N, 1 \leq j \leq M}\\
+&\theta = (\theta_k)_{1\leq k \leq K}
+\end{align*}
+\caption{Basic notation.}
+\label{equations}
+\end{figure}
+\end{frame}
+\end{comment}
+
+
+\section{The Model}
+\begin{frame}
+    \frametitle{The Model}
+\begin{figure}
+    \begin{center}
+        \includegraphics[height=1.5in]{graph.pdf}
+        \caption{Graphical representation of atomic model component}
+        \label{fig:graph}
+    \end{center}
+\end{figure}
+
+\[
+    P(X,Z,\theta) = \color<2>{red} P(Z) \color{black} \left(\prod_{k=1}^KP(\theta_k)\right)
+\left(\prod_{i=1}^N\prod_{j=1}^MP(X_{i,j}\,|\theta_{Z_{i,j}})\right)
+\]
+\end{frame}
+
+\begin{frame}
+\begin{table}
+    \begin{center}
+    \begin{tabular}{| l | l |}
+        \hline
+        $D$ & $w_D$ \\ \hline
+        \includegraphics[width=7mm]{shapes/255.png} & 3\\
+        \includegraphics[width=7mm]{shapes/31.png} & 2\\
+        \includegraphics[width=7mm]{shapes/107.png} & 2\\
+        \includegraphics[width=7mm]{shapes/11.png} & 1\\
+        \includegraphics[width=7mm]{shapes/15.png} & 1\\
+        \hline
+    \end{tabular}
+    \begin{tabular}{| l | l |}
+        \hline
+        $D$ & $w_D$ \\ \hline
+        \includegraphics[width=7mm]{shapes/22.png} & 1\\
+        \includegraphics[width=7mm]{shapes/1.png} & -1\\
+        \includegraphics[width=7mm]{shapes/19.png} & -1\\
+        \includegraphics[width=7mm]{shapes/209.png} & -1\\
+        \includegraphics[width=7mm]{shapes/0.png} & -2\\
+        \hline
+    \end{tabular}
+    \end{center}
+    \caption{Weights for selected shapes.}
+    \label{table:shapes}
+\end{table}
+\[
+P(Z) = \frac{1}{\mathcal{Z}}\prod_{i=1}^N\prod_{j=1}^M \phi(D_{i,j})
+= \frac{1}{\mathcal{Z}}\prod_{i=1}^N\prod_{j=1}^M \exp(w_{D_{i,j}})
+\]
+\end{frame}
+
+\begin{frame}
+\begin{align*}
+    P(X,Z,\theta) &= P(Z)\alert{\left(\prod_{k=1}^KP(\theta_k)\right)
+    \left(\prod_{i=1}^N\prod_{j=1}^MP(X_{i,j}\,|\theta_{Z_{i,j}})\right)}\\[5mm]
+\theta_k &= (\mu_k, \Lambda_k)\\
+X_{i,j} &\sim MVN(\mu_{Z_{i,j}}, \Lambda_{Z_{i,j}})\\
+\mu_k &\sim MVN(m,S)\\
+\Lambda_k &\sim W_d(V,n)\\
+n &= 4\\
+m &= \begin{bmatrix}
+0 & 0 & 0
+\end{bmatrix}^T\\
+V &= \mathcal{I}_3\\
+S &= .0001\mathcal{I}_3\\
+\end{align*}
+
+\end{frame}
+
+\section{Gibbs Sampler}
+\begin{frame}
+    \frametitle{Gibbs Sampler}
+\begin{align*}
+    \mu_k | X_{i,j}, Z_{i,j} &\sim MVN(m^*,S^*)\\
+    \Lambda_k | X_{i,j}, Z_{i,j} &\sim W_d(V^*,n^*)\\
+    p(Z_{i,j} = k | B(Z_{i,j})) &\propto P(X_{i,j}\,|\,\theta_k)
+    \prod_{i' = i - 1}^{i+1} \prod_{j' = j-1}^{j+1} \phi(D_{i',j'})
+    \end{align*}
+\end{frame}
+
+
+\section{Results}
+\begin{frame}
+    \frametitle{Results}
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=1.5in]{small/mv_small.png}
+    \end{center}
+    \caption{Photo of Monument Valley}
+\end{figure}
+
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=1.5in]{small/esther_small.png}
+    \end{center}
+    \caption{Photo of baby girl}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=1.5in]{results/mv_1.png}
+    \end{center}
+    \caption{Segmented Monument Valley}
+    \label{fig:mv}
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=1.5in]{results/esther_0_1.png}
+    \end{center}
+    \caption{No Prior}
+\end{figure}
+
+\begin{figure}
+    \begin{center}
+        \includegraphics[width=1.5in]{results/esther_3_0.png}
+    \end{center}
+    \caption{With Prior}
+\end{figure}
+\end{frame}
+
+\section{Future Work}
+\begin{frame}
+    \frametitle{Future Work}
+    \begin{itemize}
+        \item Pixel emission distributions
+        \item Choice of color space
+        \item Conditional vs generative models
+        \item Use bigger shapes, learn shape weights from labeled data
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \begin{center}
+        Thank you.
+    \end{center}
+\end{frame}
+
+
+\end{document}
